@@ -1,0 +1,194 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת 2 - קטגוריות מול רווחים</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff, #c3dafe);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .dark body {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: #e5e7eb;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .sidebar-hidden {
+            transform: translateX(100%);
+        }
+        .card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        .gradient-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+            transition: background 0.3s;
+        }
+        .gradient-btn:hover {
+            background: linear-gradient(45deg, #ff8e53, #ff6b6b);
+        }
+        .loading-spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4b6cb7;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <header class="sticky-header bg-gradient-to-r from-indigo-600 to-blue-800 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl md:text-3xl font-bold">מעemenea 2 - קטגוריות מול רווחים</h1>
+            <div class="flex items-center space-x-4">
+                <button id="darkModeToggle" class="text-white focus:outline-none" aria-label="החלף מצב תצוגה">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="menuToggle" class="md:hidden text-white focus:outline-none" aria-label="פתח תפריט">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <aside class="sidebar fixed top-0 right-0 h-full w-64 bg-white dark:bg-gray-800 shadow-lg p-4 md:w-1/5 md:static md:h-auto sidebar-hidden md:transform-none" id="sidebar">
+        <button id="closeSidebar" class="md:hidden text-gray-600 dark:text-gray-200 mb-4 focus:outline-none">
+            <i class="fas fa-times"></i>
+        </button>
+        <nav class="space-y-4">
+            <a href="index.html" class="block px-4 py-2 gradient-btn text-white rounded-lg hover:shadow-lg">חזרה לדף הראשי</a>
+            <a href="dash1.html" class="block px-4 py-2 gradient-btn text-white rounded-lg hover:shadow-lg">מערכת 1 - מכירות לפי יחידות</a>
+            <a href="dash3.html" class="block px-4 py-2 gradient-btn text-white rounded-lg hover:shadow-lg">מערכת 3 - שנת ייצור ומחירים</a>
+        </nav>
+    </aside>
+
+    <main class="container mx-auto px-4 py-8">
+        <section class="card bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-2xl font-semibold text-indigo-600 dark:text-indigo-300 mb-4">תיאור המערכת</h2>
+            <p class="text-gray-700 dark:text-gray-300">מערכת זו מתמקדת בניתוח רווחים לפי קטגוריות מוצרים, ומסייעת בזיהוי הקטגוריות הרווחיות ביותר והשוואה ביניהן.</p>
+        </section>
+        <section class="card bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold text-indigo-600 dark:text-indigo-300 mb-4">דשבורד רווחים</h2>
+            <p class="text-gray-700 dark:text-gray-300 mb-4">צפו בדשבורד האינטראקטיבי שלהלן לניתוח מפורט של נתוני הרווחים.</p>
+            <div id="loading" class="loading-spinner"></div>
+            <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+            <tableau-viz 
+                id="tableauViz"
+                src="https://public.tableau.com/views/Dash2_17466291234310/Dashboard2"
+                toolbar="bottom"
+                hide-tabs
+                width="100%"
+                height="800"
+                onload="hideLoading()">
+            </tableau-viz>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-white text-center py-4">
+        <p>© 2025 מערכת דנה - כל הזכויות שמורות</p>
+    </footer>
+
+    <script>
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // Sidebar toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const closeSidebar = document.getElementById('closeSidebar');
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-hidden');
+        });
+        closeSidebar.addEventListener('click', () => {
+            sidebar.classList.add('sidebar-hidden');
+        });
+
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+        darkModeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark');
+            localStorage.setItem('darkMode', body.classList.contains('dark'));
+            darkModeToggle.innerHTML = body.classList.contains('dark') ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        });
+
+        // Load dark mode preference
+        if (localStorage.getItem('darkMode') === 'true') {
+            body.classList.add('dark');
+            darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        }
+
+        // Loading spinner
+        const loading = document.getElementById('loading');
+        loading.style.display = 'block';
+        function hideLoading() {
+            loading.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
